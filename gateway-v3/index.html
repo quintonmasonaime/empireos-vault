@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Service Provider Gateway | EmpireOS</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { margin: 0; padding: 0; background: #080808; }
+        @keyframes pulse {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState } = React;
+
+        /* ─── DATA ─────────────────────────────────────────────── */
+        const SERVICES = [
+          { id: "solar",     icon: "☀️", name: "Solar Installation",  desc: "Residential & commercial PV systems" },
+          { id: "property",  icon: "🏠", name: "Property Management",  desc: "Rental, letting & property admin" },
+          { id: "finance",   icon: "🚗", name: "Vehicle Finance",       desc: "Auto loans & finance brokering" },
+          { id: "electrical",icon: "⚡", name: "Electrical",            desc: "Installations, compliance & maintenance" },
+        ];
+
+        const AREAS = [
+          "Atlantic Seaboard","City Bowl","Southern Suburbs","Northern Suburbs",
+          "West Coast","Cape Flats","Helderberg","Winelands",
+          "Somerset West","Brackenfell","Bellville","Paarl & Surrounds",
+        ];
+
+        const PLANS = [
+          {
+            id: "standard", name: "Standard", price: "R4,500", period: "/mo",
+            tag: null,
+            perks: ["Up to 10 matched leads / month","WhatsApp lead alerts","Basic match analytics","Email support"],
+          },
+          {
+            id: "elite", name: "Elite", price: "R7,500", period: "/mo",
+            tag: "MOST POPULAR",
+            perks: ["Unlimited matched leads","Priority routing","Full analytics dashboard","Dedicated account manager","Featured provider badge"],
+          },
+        ];
+
+        const TOTAL_STEPS = 5;
+
+        /* ─── SHARED STYLES ─────────────────────────────────────── */
+        const gold = "#D4AF37";
+        const goldGrad = "linear-gradient(135deg,#f9f295 0%,#e0aa3e 25%,#cf9728 50%,#e0aa3e 75%,#f9f295 100%)";
+
+        const inputStyle = {
+          width: "100%", background: "rgba(0,0,0,0.4)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          padding: "15px 18px", borderRadius: 12,
+          fontSize: "0.95rem", color: "#fff",
+          outline: "none", boxSizing: "border-box",
+          WebkitAppearance: "none", fontFamily: "inherit",
+        };
+
+        const labelStyle = {
+          display: "block", fontSize: "0.6rem",
+          textTransform: "uppercase", letterSpacing: "2px",
+          color: gold, marginBottom: 8, fontWeight: 600, paddingLeft: 2,
+        };
+
+        const selectStyle = {
+          ...inputStyle,
+          appearance: "none", WebkitAppearance: "none",
+          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23D4AF37' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")`,
+          backgroundRepeat: "no-repeat",
+          backgroundPosition: "right 16px center",
+          paddingRight: 40,
+          cursor: "pointer",
+        };
+
+        /* ─── COMPONENTS ─── */
+        function GatewayProgress({ step }) {
+          return (
+            <div style={{ marginBottom: 32 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0 }}>
+                {Array.from({ length: TOTAL_STEPS }).map((_, i) => {
+                  const done = i < step - 1;
+                  const active = i === step - 1;
+                  return (
+                    <div key={i} style={{ display: "flex", alignItems: "center" }}>
+                      <div style={{
+                        width: active ? 28 : 22, height: active ? 28 : 22,
+                        borderRadius: "50%",
+                        background: done ? goldGrad : active ? "rgba(212,175,55,0.15)" : "rgba(255,255,255,0.04)",
+                        border: done ? "none" : active ? `1.5px solid ${gold}` : "1.5px solid rgba(255,255,255,0.08)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        transition: "all 0.3s",
+                        flexShrink: 0,
+                      }}>
+                        {done
+                          ? <span style={{ fontSize: 11, color: "#000", fontWeight: 800 }}>✓</span>
+                          : <span style={{ fontSize: 10, color: active ? gold : "rgba(255,255,255,0.2)", fontWeight: 700 }}>{i + 1}</span>
+                        }
+                      </div>
+                      {i < TOTAL_STEPS - 1 && (
+                        <div style={{
+                          width: 28, height: 1,
+                          background: done ? gold : "rgba(255,255,255,0.06)",
+                          transition: "background 0.4s",
+                        }} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ textAlign: "center", marginTop: 10, fontSize: "0.58rem", letterSpacing: "2px", color: "rgba(255,255,255,0.2)", textTransform: "uppercase" }}>
+                Step {step} of {TOTAL_STEPS}
+              </div>
+            </div>
+          );
+        }
+
+        function StepIdentity({ data, set }) {
+          return (
+            <div>
+              <h2 style={{ fontWeight: 300, fontSize: "1.5rem", margin: "0 0 4px", color: "#fff" }}>
+                Who are <span style={{ color: gold, fontWeight: 700 }}>you?</span>
+              </h2>
+              <p style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.3)", margin: "0 0 26px", lineHeight: 1.6 }}>
+                We'll use this to set up your provider profile and reach you on WhatsApp.
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <div>
+                  <label style={labelStyle}>Full Name</label>
+                  <input style={inputStyle} placeholder="e.g. Sipho Dlamini" value={data.name || ""} onChange={e => set("name", e.target.value)} />
+                </div>
+                <div>
+                  <label style={labelStyle}>WhatsApp Number</label>
+                  <input style={inputStyle} placeholder="+27 8X XXX XXXX" type="tel" value={data.phone || ""} onChange={e => set("phone", e.target.value)} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Email Address</label>
+                  <input style={inputStyle} placeholder="you@company.co.za" type="email" value={data.email || ""} onChange={e => set("email", e.target.value)} />
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        function StepBusiness({ data, set }) {
+          return (
+            <div>
+              <h2 style={{ fontWeight: 300, fontSize: "1.5rem", margin: "0 0 4px", color: "#fff" }}>
+                Your <span style={{ color: gold, fontWeight: 700 }}>business</span>
+              </h2>
+              <p style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.3)", margin: "0 0 26px", lineHeight: 1.6 }}>
+                This helps us verify legitimacy and match you with the right clients.
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <div>
+                  <label style={labelStyle}>Business Name</label>
+                  <input style={inputStyle} placeholder="e.g. Grovest Solar Solutions" value={data.bizName || ""} onChange={e => set("bizName", e.target.value)} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Business Type</label>
+                  <select style={selectStyle} value={data.bizType || ""} onChange={e => set("bizType", e.target.value)}>
+                    <option value="" disabled>Select type</option>
+                    <option>Sole Proprietor</option>
+                    <option>Close Corporation (CC)</option>
+                    <option>Private Company (PTY Ltd)</option>
+                    <option>Partnership</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Years Operating</label>
+                  <select style={selectStyle} value={data.years || ""} onChange={e => set("years", e.target.value)}>
+                    <option value="" disabled>Select range</option>
+                    <option>Less than 1 year</option>
+                    <option>1–3 years</option>
+                    <option>3–5 years</option>
+                    <option>5–10 years</option>
+                    <option>10+ years</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        function StepServices({ data, set }) {
+          const selected = data.services || [];
+          const toggle = (id) => {
+            const next = selected.includes(id) ? selected.filter(s => s !== id) : [...selected, id];
+            set("services", next);
+          };
+          return (
+            <div>
+              <h2 style={{ fontWeight: 300, fontSize: "1.5rem", margin: "0 0 4px", color: "#fff" }}>
+                What you <span style={{ color: gold, fontWeight: 700 }}>offer</span>
+              </h2>
+              <p style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.3)", margin: "0 0 26px", lineHeight: 1.6 }}>
+                Select all sectors you operate in.
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                {SERVICES.map(svc => {
+                  const on = selected.includes(svc.id);
+                  return (
+                    <button key={svc.id} onClick={() => toggle(svc.id)} style={{
+                      background: on ? "rgba(212,175,55,0.12)" : "rgba(0,0,0,0.3)",
+                      border: `1px solid ${on ? gold : "rgba(255,255,255,0.07)"}`,
+                      borderRadius: 14, padding: "18px 14px", textAlign: "left", cursor: "pointer", transition: "all 0.2s",
+                    }}>
+                      <div style={{ fontSize: 26, marginBottom: 8 }}>{svc.icon}</div>
+                      <div style={{ fontSize: "0.82rem", fontWeight: 700, color: on ? gold : "#fff", marginBottom: 3 }}>{svc.name}</div>
+                      <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.3)", lineHeight: 1.4 }}>{svc.desc}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+
+        function StepCoverage({ data, set }) {
+          const selected = data.areas || [];
+          const toggle = (area) => {
+            const next = selected.includes(area) ? selected.filter(a => a !== area) : [...selected, area];
+            set("areas", next);
+          };
+          return (
+            <div>
+              <h2 style={{ fontWeight: 300, fontSize: "1.5rem", margin: "0 0 4px", color: "#fff" }}>
+                Where you <span style={{ color: gold, fontWeight: 700 }}>operate</span>
+              </h2>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {AREAS.map(area => {
+                  const on = selected.includes(area);
+                  return (
+                    <button key={area} onClick={() => toggle(area)} style={{
+                      padding: "9px 14px", borderRadius: 30, border: `1px solid ${on ? gold : "rgba(255,255,255,0.08)"}`,
+                      background: on ? "rgba(212,175,55,0.12)" : "rgba(0,0,0,0.3)", color: on ? gold : "rgba(255,255,255,0.45)",
+                      fontSize: "0.72rem", fontWeight: 600, cursor: "pointer", transition: "all 0.18s",
+                    }}>{area}</button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+
+        function StepPlan({ data, set }) {
+          return (
+            <div>
+              <h2 style={{ fontWeight: 300, fontSize: "1.5rem", margin: "0 0 4px", color: "#fff" }}>
+                Choose your <span style={{ color: gold, fontWeight: 700 }}>plan</span>
+              </h2>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {PLANS.map(plan => {
+                  const on = data.plan === plan.id;
+                  return (
+                    <button key={plan.id} onClick={() => set("plan", plan.id)} style={{
+                      background: on ? "rgba(212,175,55,0.08)" : "rgba(0,0,0,0.3)",
+                      border: `1.5px solid ${on ? gold : "rgba(255,255,255,0.07)"}`,
+                      borderRadius: 16, padding: "20px", textAlign: "left", cursor: "pointer", position: "relative",
+                    }}>
+                      <div style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "2px" }}>{plan.name}</div>
+                      <div style={{ fontSize: "1.6rem", fontWeight: 700, color: on ? gold : "#fff" }}>{plan.price}</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
+                        {plan.perks.map((p, i) => <div key={i} style={{ fontSize: "0.73rem", color: "rgba(255,255,255,0.45)" }}>• {p}</div>)}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+
+        function Confirmed({ data }) {
+          const plan = PLANS.find(p => p.id === data.plan);
+          return (
+            <div style={{ textAlign: "center" }}>
+              <div style={{ position: "relative", width: 72, height: 72, margin: "0 auto 24px" }}>
+                <div style={{
+                  width: 72, height: 72, borderRadius: "50%", background: "rgba(212,175,55,0.1)",
+                  border: `1.5px solid rgba(212,175,55,0.3)`, display: "flex", alignItems: "center", justifyContent: "center",
+                  animation: "pulse 2s ease-in-out infinite",
+                }}>
+                  <div style={{ width: 46, height: 46, borderRadius: "50%", background: goldGrad, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <span style={{ fontSize: 20, color: "#000", fontWeight: 900 }}>✓</span>
+                  </div>
+                </div>
+              </div>
+              <h2 style={{ fontWeight: 300, fontSize: "1.5rem", margin: "0 0 8px", color: "#fff" }}>You're <span style={{ color: gold, fontWeight: 700 }}>in the system</span></h2>
+              <p style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.45)", margin: "0 0 32px", lineHeight: 1.6 }}>
+                Welcome to the EmpireOS network, {data.name?.split(' ')[0]}. We've sent a verification link to your WhatsApp.
+              </p>
+              <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 20, padding: 24, textAlign: "left" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                  <span style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.3)" }}>Business</span>
+                  <span style={{ fontSize: "0.7rem", color: "#fff" }}>{data.bizName}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: "0.7rem", color: gold }}>Active Plan</span>
+                  <span style={{ fontSize: "0.7rem", color: gold }}>{plan?.price}/mo</span>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        function ProviderGateway() {
+          const [step, setStep] = useState(1);
+          const [formData, setFormData] = useState({ services: [], areas: [], plan: "standard" });
+          const update = (key, val) => setFormData(prev => ({ ...prev, [key]: val }));
+          const next = () => setStep(s => s + 1);
+          const back = () => setStep(s => s - 1);
+          const isStepValid = () => {
+            if (step === 1) return formData.name && formData.phone && formData.email;
+            if (step === 2) return formData.bizName && formData.bizType && formData.years;
+            if (step === 3) return formData.services.length > 0;
+            if (step === 4) return formData.areas.length > 0;
+            return true;
+          };
+
+          return (
+            <div style={{ minHeight: "100vh", color: "#fff", fontFamily: "sans-serif", padding: "40px 20px" }}>
+              <div style={{ maxWidth: 440, margin: "0 auto" }}>
+                {step <= TOTAL_STEPS && <GatewayProgress step={step} />}
+                <div style={{ minHeight: 400 }}>
+                  {step === 1 && <StepIdentity data={formData} set={update} />}
+                  {step === 2 && <StepBusiness data={formData} set={update} />}
+                  {step === 3 && <StepServices data={formData} set={update} />}
+                  {step === 4 && <StepCoverage data={formData} set={update} />}
+                  {step === 5 && <StepPlan data={formData} set={update} />}
+                  {step === 6 && <Confirmed data={formData} />}
+                </div>
+                {step <= TOTAL_STEPS && (
+                  <div style={{ marginTop: 40, display: "flex", gap: 12 }}>
+                    {step > 1 && <button onClick={back} style={{ flex: 1, padding: 18, borderRadius: 14, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", color: "#aaa", fontWeight: 600 }}>Back</button>}
+                    <button onClick={next} disabled={!isStepValid()} style={{ flex: 2, padding: 18, borderRadius: 14, background: isStepValid() ? goldGrad : "#222", border: "none", color: "#000", fontWeight: 800, opacity: isStepValid() ? 1 : 0.5 }}>{step === TOTAL_STEPS ? "Complete Setup" : "Continue"}</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<ProviderGateway />);
+    </script>
+</body>
+</html>
