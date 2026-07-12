@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Cape Town Syndicate</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#0a0a0a; overflow:hidden; font-family:'Courier New',monospace; }
+canvas { display:block; }
+#ui {
+  position:fixed; top:0; left:0; width:100%; pointer-events:none;
+  color:#fff; text-shadow:0 0 6px #f90;
+}
+#hud {
+  display:flex; justify-content:space-between; align-items:flex-start;
+  padding:12px 16px;
+}
+.hud-box {
+  background:rgba(0,0,0,0.7); border:1px solid #f90;
+  padding:8px 12px; border-radius:4px; font-size:13px; min-width:160px;
+}
+.hud-box h3 { color:#f90; font-size:11px; letter-spacing:2px; margin-bottom:4px; }
+#healthbar { width:100%; height:8px; background:#333; border-radius:4px; margin-top:4px; }
+#healthfill { height:100%; background:linear-gradient(90deg,#f00,#f90); border-radius:4px; transition:width 0.2s; }
+#wantedstars { color:#f90; font-size:16px; letter-spacing:2px; }
+#minimap {
+  position:fixed; bottom:16px; right:16px;
+  width:160px; height:160px;
+  background:rgba(0,0,0,0.8); border:1px solid #f90;
+  border-radius:4px; overflow:hidden;
+}
+#minimap canvas { width:100%; height:100%; }
+#msg {
+  position:fixed; bottom:60px; left:50%; transform:translateX(-50%);
+  background:rgba(0,0,0,0.85); border:1px solid #f90;
+  color:#f90; padding:8px 20px; border-radius:4px; font-size:14px;
+  display:none; pointer-events:none; text-align:center;
+}
+#weaponbar {
+  position:fixed; bottom:16px; left:50%; transform:translateX(-50%);
+  display:flex; gap:8px; pointer-events:none;
+}
+.wslot {
+  background:rgba(0,0,0,0.8); border:1px solid #555;
+  color:#aaa; padding:6px 12px; border-radius:4px; font-size:12px;
+  text-align:center; min-width:70px;
+}
+.wslot.active { border-color:#f90; color:#f90; background:rgba(255,150,0,0.15); }
+#overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,0.92);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  color:#fff; z-index:100;
+}
+#overlay h1 { font-size:48px; color:#f90; letter-spacing:6px; text-shadow:0 0 20px #f90; margin-bottom:8px; }
+#overlay p { color:#aaa; margin-bottom:4px; font-size:13px; }
+#overlay .controls { background:rgba(255,150,0,0.08); border:1px solid #f90; padding:16px 32px; border-radius:6px; margin:16px 0; line-height:2; font-size:13px; }
+#overlay button {
+  background:#f90; color:#000; border:none; padding:12px 36px;
+  font-size:16px; font-family:'Courier New',monospace; font-weight:bold;
+  border-radius:4px; cursor:pointer; letter-spacing:2px; margin-top:8px;
+  pointer-events:all;
+}
+#overlay button:hover { background:#ffaa22; }
+#gameover {
+  position:fixed; inset:0; background:rgba(0,0,0,0.92);
+  display:none; flex-direction:column; align-items:center; justify-content:center;
+  color:#fff; z-index:100;
+}
+#gameover h1 { font-size:48px; color:#f00; letter-spacing:4px; text-shadow:0 0 20px #f00; }
+#gameover p { color:#aaa; margin:8px 0; font-size:14px; }
+#gameover button {
+  background:#f90; color:#000; border:none; padding:12px 36px;
+  font-size:16px; font-family:'Courier New',monospace; font-weight:bold;
+  border-radius:4px; cursor:pointer; margin-top:16px; pointer-events:all;
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <div id="hud">
+    <div class="hud-box">
+      <h3>SYNDICATE BOSS</h3>
+      <div>❤ Health</div>
+      <div id="healthbar"><div id="healthfill" style="width:100%"></div></div>
+      <div style="margin-top:6px">💰 R<span id="cash">0</span></div>
+      <div>🔫 <span id="ammo">∞</span></div>
+      <div>☠ Kills: <span id="kills">0</span></div>
+    </div>
+    <div class="hud-box" style="text-align:center">
+      <h3>WANTED LEVEL</h3>
+      <div id="wantedstars">☆☆☆☆☆</div>
+      <div style="font-size:11px;color:#aaa;margin-top:4px" id="wantedlabel">Clean</div>
+    </div>
+    <div class="hud-box" style="text-align:right">
+      <h3>TERRITORY</h3>
+      <div>Zones: <span id="zones">0</span>/8</div>
+      <div style="font-size:11px;color:#aaa;margin-top:4px">Syndicate expanding...</div>
+    </div>
+  </div>
+</div>
+<div id="msg"></div>
+<div id="weaponbar">
+  <div class="wslot active" id="w0">1: KNIFE</div>
+  <div class="wslot" id="w1">2: 9MM</div>
+  <div class="wslot" id="w2">3: SHOTGUN</div>
+  <div class="wslot" id="w3">4: AK-47</div>
+</div>
+<div id="minimap"><canvas id="mm"></canvas></div>
+<div id="overlay">
+  <h1>CAPE TOWN SYNDICATE</h1>
+  <p style="color:#f90;letter-spacing:3px;margin-bottom:12px">STREETS DON'T SLEEP. NOR DO YOU.</p>
+  <div class="controls">
+    <b>WASD</b> — Move &nbsp;|&nbsp; <b>Mouse</b> — Aim &nbsp;|&nbsp; <b>Click</b> — Shoot<br>
+    <b>1-4</b> — Switch Weapon &nbsp;|&nbsp; <b>E</b> — Interact<br>
+    <b>H</b> — Buy Health (R200) &nbsp;|&nbsp; <b>R</b> — Reload
+  </div>
+  <p style="color:#888;font-size:12px">Take over Cape Town. Run deals. Eliminate rivals. Don't get got.</p>
+  <button onclick="startGame()">START THE GRIND</button>
+</div>
+<div id="gameover">
+  <h1>YOU GOT GOT</h1>
+  <p>The streets claimed another one.</p>
+  <p>Cash earned: R<span id="finalcash">0</span> &nbsp;|&nbsp; Kills: <span id="finalkills">0</span></p>
+  <button onclick="startGame()">TRY AGAIN</button>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const mm = document.getElementById('mm');
+const mctx = mm.getContext('2d');
+
+let W, H;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  mm.width = mm.height = 160;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ---- WORLD ----
+const WORLD = 3200, TILE = 40;
+const keys = {};
+const mouse = { x: 0, y: 0, down: false };
+let cam = { x: 0, y: 0 };
+let running = false;
+
+// Zones (territory)
+const ZONES = [
+  { name:'Cape Flats', x:300, y:300, r:220, color:'#e55', owned:false },
+  { name:'Woodstock',  x:800, y:500, r:180, color:'#e55', owned:false },
+  { name:'CBD',        x:1200,y:300, r:200, color:'#e55', owned:false },
+  { name:'Waterfront', x:1600,y:200, r:170, color:'#e55', owned:false },
+  { name:'Mitchells Plain',x:400,y:900,r:200, color:'#e55', owned:false },
+  { name:'Khayelitsha',x:900,y:1100,r:220, color:'#e55', owned:false },
+  { name:'Observatory',x:1400,y:700,r:160, color:'#e55', owned:false },
+  { name:'Green Point', x:1800,y:600,r:170, color:'#e55', owned:false },
+];
+
+// Deal zones
+const DEALS = [
+  { x:350,y:350,active:true,cash:500,label:'Tik Run' },
+  { x:850,y:550,active:true,cash:800,label:'Smuggle Job' },
+  { x:1250,y:350,active:true,cash:1200,label:'Heist Setup' },
+  { x:1650,y:250,active:true,cash:700,label:'Port Deal' },
+  { x:450,y:950,active:true,cash:600,label:'Street Deal' },
+  { x:950,y:1150,active:true,cash:900,label:'Territory Tax' },
+  { x:1450,y:750,active:true,cash:1100,label:'Arms Deal' },
+  { x:1850,y:650,active:true,cash:1500,label:'Diamond Run' },
+];
+
+// Safehouse
+const SAFEHOUSE = { x:700, y:800, r:30 };
+
+// Road tiles (simple grid of roads)
+const ROADS = [];
+for(let i=0;i<WORLD;i+=320) for(let j=0;j<WORLD;j+=320) {
+  ROADS.push({x:i,y:0,w:TILE,h:WORLD});
+  ROADS.push({x:0,y:j,w:WORLD,h:TILE});
+}
+
+// Buildings
+const BUILDINGS = [];
+const rng = (min,max)=>Math.random()*(max-min)+min;
+for(let i=0;i<120;i++){
+  let bx=rng(50,WORLD-150), by=rng(50,WORLD-150);
+  let bw=rng(60,160), bh=rng(60,160);
+  BUILDINGS.push({x:bx,y:by,w:bw,h:bh,
+    color:`hsl(${rng(20,40)},${rng(10,30)}%,${rng(15,30)}%)`});
+}
+
+// Weapons
+const WEAPONS = [
+  { name:'KNIFE', range:50, dmg:30, auto:false, reload:0, ammo:Infinity, maxAmmo:Infinity, spread:0 },
+  { name:'9MM',   range:300, dmg:18, auto:false, reload:800, ammo:12, maxAmmo:12, spread:0.05 },
+  { name:'SHOTGUN',range:180,dmg:60,auto:false, reload:1200, ammo:6, maxAmmo:6, spread:0.3 },
+  { name:'AK-47', range:400, dmg:22, auto:true,  reload:600, ammo:30, maxAmmo:30, spread:0.08 },
+];
+
+let player, enemies, bullets, particles, floats;
+let wantedLevel, wantedTimer;
+let currentWeapon, weaponState;
+let killCount, cash, zonesOwned;
+let shootCooldown, reloadTimer, reloading;
+let msgTimer;
+
+function initWeapons() {
+  weaponState = WEAPONS.map(w=>({ ammo: w.ammo, reloading:false, reloadTimer:0 }));
+  currentWeapon = 0;
+  updateWeaponUI();
+}
+
+function player_init() {
+  player = {
+    x: WORLD/2, y: WORLD/2,
+    hp: 100, maxHp: 100,
+    speed: 3.5,
+    angle: 0,
+    r: 14,
+    invincible: 0
+  };
+}
+
+function spawnEnemy(type) {
+  let angle = Math.random()*Math.PI*2;
+  let dist = 500 + Math.random()*300;
+  let ex = player.x + Math.cos(angle)*dist;
+  let ey = player.y + Math.sin(angle)*dist;
+  ex = Math.max(20, Math.min(WORLD-20, ex));
+  ey = Math.max(20, Math.min(WORLD-20, ey));
+  let types = [
+    { label:'Gang Member', hp:40, speed:1.4, dmg:8, color:'#c33', r:12, cash:100 },
+    { label:'Rival Boss',  hp:120, speed:1.0, dmg:20, color:'#922', r:16, cash:400, shoots:true },
+    { label:'Police',      hp:60, speed:1.8, dmg:12, color:'#36f', r:12, cash:50, shoots:true },
+  ];
+  let t = types[type||0];
+  return { x:ex, y:ey, hp:t.hp, maxHp:t.hp, speed:t.speed+wantedLevel*0.1,
+    dmg:t.dmg, color:t.color, r:t.r, cash:t.cash, label:t.label,
+    shoots:t.shoots||false, shootTimer:Math.random()*120, angle:0,
+    alert:false, alertTimer:0 };
+}
+
+function startGame() {
+  document.getElementById('overlay').style.display = 'none';
+  document.getElementById('gameover').style.display = 'none';
+  running = true;
+  player_init();
+  enemies = [];
+  bullets = [];
+  particles = [];
+  floats = [];
+  wantedLevel = 0;
+  wantedTimer = 0;
+  killCount = 0;
+  cash = 1000;
+  zonesOwned = 0;
+  shootCooldown = 0;
+  reloadTimer = 0;
+  reloading = false;
+  msgTimer = 0;
+  ZONES.forEach(z=>z.owned=false);
+  DEALS.forEach(d=>{d.active=true; d.timer=0;});
+  initWeapons();
+  updateHUD();
+  for(let i=0;i<6;i++) enemies.push(spawnEnemy(0));
+  cam.x = player.x - W/2;
+  cam.y = player.y - H/2;
+  loop();
+}
+
+function showMsg(txt, dur=2500) {
+  const el = document.getElementById('msg');
+  el.textContent = txt;
+  el.style.display = 'block';
+  msgTimer = dur;
+}
+
+function updateHUD() {
+  document.getElementById('healthfill').style.width = (player.hp/player.maxHp*100)+'%';
+  document.getElementById('cash').textContent = Math.floor(cash);
+  document.getElementById('kills').textContent = killCount;
+  document.getElementById('zones').textContent = zonesOwned;
+  const ws = weaponState[currentWeapon];
+  const wdef = WEAPONS[currentWeapon];
+  document.getElementById('ammo').textContent = wdef.ammo===Infinity ? '∞' : (ws.ammo+'/'+wdef.maxAmmo);
+  const stars = ['☆☆☆☆☆','★☆☆☆☆','★★☆☆☆','★★★☆☆','★★★★☆','★★★★★'];
+  const labels = ['Clean','Spotted','Hot','Dangerous','Most Wanted','Cartel War'];
+  document.getElementById('wantedstars').textContent = stars[wantedLevel];
+  document.getElementById('wantedlabel').textContent = labels[wantedLevel];
+}
+
+function updateWeaponUI() {
+  for(let i=0;i<4;i++) {
+    const el = document.getElementById('w'+i);
+    el.className = 'wslot'+(i===currentWeapon?' active':'');
+    const ws = weaponState[i];
+    const wd = WEAPONS[i];
+    el.textContent = (i+1)+': '+wd.name+(wd.ammo!==Infinity?(' '+ws.ammo+'/'+wd.maxAmmo):'');
+  }
+}
+
+let lastTime = 0;
+function loop(ts=0) {
+  if(!running) return;
+  const dt = Math.min((ts-lastTime)/16.67, 3);
+  lastTime = ts;
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+function dist(x1,y1,x2,y2){ return Math.sqrt((x2-x1)**2 + (y2-y1)**2); }
+
+function collidesBuilding(x,y,r){
+  for(let b of BUILDINGS){
+    if(x+r > b.x && x-r < b.x+b.w && y+r > b.y && y-r < b.y+b.h) return true;
+  }
+  return false;
+}
+
+function fireBullet(){
+  const wd = WEAPONS[currentWeapon];
+  const ws = weaponState[currentWeapon];
+  const count = wd.name==='SHOTGUN'?6:1;
+  for(let i=0;i<count;i++){
+    let ang = player.angle + (Math.random()-0.5)*wd.spread;
+    bullets.push({
+      x: player.x, y: player.y,
+      angle: ang, speed: 12, life: wd.range/12,
+      dmg: wd.dmg, fromPlayer: true, color: '#f90'
+    });
+  }
+  spawnParticles(player.x+Math.cos(player.angle)*15, player.y+Math.sin(player.angle)*15, '#ff0', 3);
+}
+
+function startReload(){
+  if(reloading) return;
+  const wd = WEAPONS[currentWeapon];
+  if(wd.ammo === Infinity) return;
+  reloading = true;
+  reloadTimer = wd.reload;
+  showMsg('Reloading...', wd.reload);
+}
+
+function addWanted(amt){
+  wantedTimer = 0;
+  let old = Math.floor(wantedLevel);
+  wantedLevel = Math.min(5, wantedLevel + amt*0.05);
+  if(Math.floor(wantedLevel) > old) updateHUD();
+}
+
+function spawnParticles(x,y,color,count){
+  for(let i=0;i<count;i++){
+    particles.push({
+      x, y, color,
+      vx: (Math.random()-0.5)*4,
+      vy: (Math.random()-0.5)*4,
+      life: 20+Math.random()*20,
+      size: 2+Math.random()*3
+    });
+  }
+}
+
+function gameOver(){
+  running = false;
+  document.getElementById('gameover').style.display = 'flex';
+  document.getElementById('finalcash').textContent = Math.floor(cash);
+  document.getElementById('finalkills').textContent = killCount;
+}
+
+function update(dt) {
+  if(player.invincible > 0) player.invincible -= dt;
+  if(msgTimer > 0) {
+    msgTimer -= dt;
+    if(msgTimer <= 0) document.getElementById('msg').style.display = 'none';
+  }
+
+  let dx=0,dy=0;
+  if(keys['w']||keys['arrowup']) dy-=1;
+  if(keys['s']||keys['arrowdown']) dy+=1;
+  if(keys['a']||keys['arrowleft']) dx-=1;
+  if(keys['d']||keys['arrowright']) dx+=1;
+  if(dx||dy){let l=Math.sqrt(dx*dx+dy*dy);dx/=l;dy/=l;}
+  let spd = player.speed * dt;
+  let nx = player.x+dx*spd, ny=player.y+dy*spd;
+  if(!collidesBuilding(nx,ny,player.r)) { player.x=nx; player.y=ny; }
+  player.x=Math.max(player.r,Math.min(WORLD-player.r,player.x));
+  player.y=Math.max(player.r,Math.min(WORLD-player.r,player.y));
+
+  player.angle = Math.atan2((mouse.y+cam.y)-player.y,(mouse.x+cam.x)-player.x);
+
+  cam.x += (player.x - W/2 - cam.x)*0.1;
+  cam.y += (player.y - H/2 - cam.y)*0.1;
+
+  if(shootCooldown>0) shootCooldown-=dt;
+  if(reloadTimer>0){
+    reloadTimer-=dt;
+    if(reloadTimer<=0){
+      reloading=false;
+      weaponState[currentWeapon].ammo=WEAPONS[currentWeapon].maxAmmo;
+      updateWeaponUI();
+      showMsg('Reloaded!',800);
+      updateHUD();
+    }
+  }
+  const wd = WEAPONS[currentWeapon];
+  const ws = weaponState[currentWeapon];
+  if(mouse.down && !reloading && shootCooldown<=0){
+    if(wd.ammo===Infinity||(ws.ammo>0)){
+      fireBullet();
+      shootCooldown = wd.name==='AK-47'?5:wd.name==='SHOTGUN'?25:12;
+      if(wd.ammo!==Infinity){
+        ws.ammo--;
+        if(ws.ammo<=0) startReload();
+        updateWeaponUI();
+        updateHUD();
+      }
+    } else {
+      startReload();
+    }
+  }
+
+  bullets = bullets.filter(b=>{
+    b.x+=Math.cos(b.angle)*b.speed*dt;
+    b.y+=Math.sin(b.angle)*b.speed*dt;
+    b.life-=dt;
+    if(b.life<0) return false;
+    if(collidesBuilding(b.x,b.y,3)) { spawnParticles(b.x,b.y,'#888',4); return false; }
+    if(b.fromPlayer){
+      for(let i=enemies.length-1;i>=0;i--){
+        const e=enemies[i];
+        if(dist(b.x,b.y,e.x,e.y)<e.r){
+          e.hp-=b.dmg;
+          spawnParticles(e.x,e.y,'#f33',6);
+          addWanted(0.1);
+          if(e.hp<=0){
+            enemies.splice(i,1);
+            cash+=e.cash;
+            killCount++;
+            addWanted(e.label==='Police'?0.8:0.4);
+            spawnParticles(e.x,e.y,'#f90',12);
+            floats.push({x:e.x,y:e.y,txt:'+R'+e.cash,life:90,color:'#f90'});
+            updateHUD();
+          }
+          return false;
+        }
+      }
+    } else {
+      if(dist(b.x,b.y,player.x,player.y)<player.r && player.invincible<=0){
+        player.hp-=b.dmg;
+        player.invincible=20;
+        spawnParticles(player.x,player.y,'#f33',8);
+        if(player.hp<=0) gameOver();
+        updateHUD();
+        return false;
+      }
+    }
+    return true;
+  });
+
+  enemies.forEach(e=>{
+    let ang = Math.atan2(player.y-e.y,player.x-e.x);
+    e.angle=ang;
+    let edx=Math.cos(ang)*e.speed*dt, edy=Math.sin(ang)*e.speed*dt;
+    let enx=e.x+edx, eny=e.y+edy;
+    if(!collidesBuilding(enx,eny,e.r)){e.x=enx;e.y=eny;}
+    if(dist(e.x,e.y,player.x,player.y)<player.r+e.r+2 && player.invincible<=0){
+      player.hp-=e.dmg*dt*0.1;
+      if(Math.random()<0.1) spawnParticles(player.x,player.y,'#f00',1);
+      if(player.hp<=0){gameOver();return;}
+      updateHUD();
+    }
+    if(e.shoots){
+      e.shootTimer-=dt;
+      if(e.shootTimer<=0){
+        e.shootTimer=100+Math.random()*100;
+        let ba=ang+(Math.random()-0.5)*0.2;
+        bullets.push({x:e.x,y:e.y,angle:ba,speed:6,life:60,dmg:e.dmg,fromPlayer:false,color:'#f33'});
+      }
+    }
+  });
+
+  let maxE = 6 + Math.floor(wantedLevel*4);
+  if(enemies.length < maxE && Math.random()<0.02*dt){
+    let type = 0;
+    if(wantedLevel >= 4) type = Math.random() < 0.5 ? 2 : 1;
+    else if(wantedLevel >= 2) type = Math.random() < 0.4 ? 2 : 0;
+    enemies.push(spawnEnemy(type));
+  }
+
+  wantedTimer+=dt;
+  if(wantedTimer>600 && wantedLevel>0){
+    wantedTimer=0; wantedLevel=Math.max(0,wantedLevel-0.2); updateHUD();
+  }
+
+  if(keys['e']){
+    DEALS.forEach(d=>{
+      if(d.active && dist(player.x,player.y,d.x,d.y)<50){
+        d.active=false; d.timer=1200;
+        cash+=d.cash;
+        addWanted(0.3);
+        floats.push({x:d.x,y:d.y,txt:'+R'+d.cash+' ('+d.label+')',life:150,color:'#0f0'});
+        showMsg('💰 Deal done: +R'+d.cash);
+        updateHUD();
+      }
+    });
+    if(dist(player.x,player.y,SAFEHOUSE.x,SAFEHOUSE.y)<SAFEHOUSE.r+20){
+      if(cash>=200 && player.hp<player.maxHp){
+        cash-=200; player.hp=Math.min(player.maxHp,player.hp+50);
+        showMsg('🏠 Healed at safehouse! -R200');
+        updateHUD();
+      }
+    }
+  }
+
+  DEALS.forEach(d=>{ if(!d.active){d.timer-=dt; if(d.timer<=0)d.active=true;} });
+
+  ZONES.forEach(z=>{
+    if(!z.owned && dist(player.x,player.y,z.x,z.y)<z.r){
+      let nearEnemy = enemies.some(e=>dist(e.x,e.y,z.x,z.y)<z.r+50);
+      if(!nearEnemy){
+        z.owned = true;
+        zonesOwned++;
+        cash += 2500;
+        showMsg('🚩 Territory Captured: '+z.name+' (+R2500)');
+        floats.push({x:z.x,y:z.y,txt:'SYNDICATE PROPERTY',life:180,color:'#f90'});
+        updateHUD();
+      }
+    }
+  });
+
+  particles.forEach(p=>{
+    p.x+=p.vx; p.y+=p.vy; p.life-=dt;
+  });
+  particles = particles.filter(p=>p.life>0);
+
+  floats.forEach(f=>{ f.y-=0.5*dt; f.life-=dt; });
+  floats = floats.filter(f=>f.life>0);
+}
+
+function draw() {
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fillRect(0,0,W,H);
+
+  ctx.save();
+  ctx.translate(-cam.x, -cam.y);
+
+  // Roads
+  ctx.fillStyle = '#1a1a1a';
+  ROADS.forEach(r=>ctx.fillRect(r.x,r.y,r.w,r.h));
+
+  // Zones
+  ZONES.forEach(z=>{
+    ctx.beginPath();
+    ctx.arc(z.x,z.y,z.r,0,Math.PI*2);
+    ctx.strokeStyle = z.owned ? '#0f0' : '#f33';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = z.owned ? 'rgba(0,255,0,0.05)' : 'rgba(255,0,0,0.05)';
+    ctx.fill();
+    ctx.fillStyle = z.owned ? '#0f0' : '#f33';
+    ctx.font = '12px Courier New';
+    ctx.textAlign = 'center';
+    ctx.fillText(z.name + (z.owned?' (OWNED)':''), z.x, z.y-z.r-10);
+  });
+
+  // Safehouse
+  ctx.beginPath();
+  ctx.arc(SAFEHOUSE.x,SAFEHOUSE.y,SAFEHOUSE.r,0,Math.PI*2);
+  ctx.strokeStyle = '#f90';
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,150,0,0.2)';
+  ctx.fill();
+  ctx.fillStyle = '#f90';
+  ctx.fillText('SAFEHOUSE', SAFEHOUSE.x, SAFEHOUSE.y-40);
+
+  // Buildings
+  BUILDINGS.forEach(b=>{
+    ctx.fillStyle = b.color;
+    ctx.fillRect(b.x,b.y,b.w,b.h);
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+    ctx.strokeRect(b.x,b.y,b.w,b.h);
+  });
+
+  // Deals
+  DEALS.forEach(d=>{
+    if(d.active){
+      ctx.fillStyle = '#0f0';
+      ctx.beginPath();
+      ctx.arc(d.x,d.y,6,0,Math.PI*2);
+      ctx.fill();
+      ctx.fillText(d.label, d.x, d.y-15);
+    }
+  });
+
+  // Particles
+  particles.forEach(p=>{
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x,p.y,p.size,p.size);
+  });
+
+  // Bullets
+  bullets.forEach(b=>{
+    ctx.fillStyle = b.color;
+    ctx.beginPath();
+    ctx.arc(b.x,b.y,3,0,Math.PI*2);
+    ctx.fill();
+  });
+
+  // Enemies
+  enemies.forEach(e=>{
+    ctx.save();
+    ctx.translate(e.x,e.y);
+    ctx.rotate(e.angle);
+    ctx.fillStyle = e.color;
+    ctx.beginPath();
+    ctx.arc(0,0,e.r,0,Math.PI*2);
+    ctx.fill();
+    // Gun
+    ctx.fillStyle = '#333';
+    ctx.fillRect(10,-2,15,4);
+    ctx.restore();
+    // Health bar
+    ctx.fillStyle = '#333';
+    ctx.fillRect(e.x-15, e.y-e.r-10, 30, 4);
+    ctx.fillStyle = '#f00';
+    ctx.fillRect(e.x-15, e.y-e.r-10, 30*(e.hp/e.maxHp), 4);
+  });
+
+  // Player
+  ctx.save();
+  ctx.translate(player.x,player.y);
+  ctx.rotate(player.angle);
+  ctx.fillStyle = player.invincible%4<2 ? '#fff' : '#f90';
+  ctx.beginPath();
+  ctx.arc(0,0,player.r,0,Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = '#333';
+  ctx.fillRect(12,-3,20,6); // Weapon
+  ctx.restore();
+
+  // Floats
+  floats.forEach(f=>{
+    ctx.fillStyle = f.color;
+    ctx.font = 'bold 14px Courier New';
+    ctx.textAlign = 'center';
+    ctx.fillText(f.txt, f.x, f.y);
+  });
+
+  ctx.restore();
+
+  // Minimap
+  mctx.fillStyle = '#000';
+  mctx.fillRect(0,0,160,160);
+  const s = 160/WORLD;
+  ZONES.forEach(z=>{
+    mctx.fillStyle = z.owned?'#0f0':'#f00';
+    mctx.beginPath(); mctx.arc(z.x*s,z.y*s,z.r*s,0,Math.PI*2); mctx.fill();
+  });
+  BUILDINGS.forEach(b=>{
+    mctx.fillStyle = '#333';
+    mctx.fillRect(b.x*s,b.y*s,b.w*s,b.h*s);
+  });
+  mctx.fillStyle = '#fff';
+  mctx.fillRect(player.x*s-2, player.y*s-2, 4, 4);
+  enemies.forEach(e=>{
+    mctx.fillStyle = '#f00';
+    mctx.fillRect(e.x*s-1, e.y*s-1, 2, 2);
+  });
+}
+
+// Input
+window.onkeydown = e => {
+  keys[e.key.toLowerCase()] = true;
+  if(e.key >= '1' && e.key <= '4') {
+    currentWeapon = parseInt(e.key)-1;
+    updateWeaponUI();
+    updateHUD();
+  }
+  if(e.key.toLowerCase() === 'r') startReload();
+};
+window.onkeyup = e => keys[e.key.toLowerCase()] = false;
+canvas.onmousedown = () => mouse.down = true;
+window.onmouseup = () => mouse.down = false;
+window.onmousemove = e => {
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
+};
+</script>
+</body>
+</html>
